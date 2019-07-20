@@ -28,7 +28,7 @@ using rgb_matrix::GPIO;
 Nan::Persistent<v8::Function> LedMatrix::constructor;
 std::map<std::string, rgb_matrix::Font> LedMatrix::fontMap;
 
-LedMatrix::LedMatrix (int rows, int cols , int parallel_displays, int chained_displays, int brightness, const char* mapping, const char* rgbseq, std::vector<std::string> flags) 
+LedMatrix::LedMatrix (int rows, int cols,  int chained_displays, int led_multiplexing, const char* pixel_mapper, int parallel_displays, int brightness, const char* mapping, const char* rgbseq, std::vector<std::string> flags) 
 {
 
 	//dump out flags into a vector of char* <CRRINNGGEEEEEE>
@@ -50,6 +50,8 @@ LedMatrix::LedMatrix (int rows, int cols , int parallel_displays, int chained_di
 	defaults.rows = rows;
 	defaults.cols = cols; 
 	defaults.chain_length = chained_displays;
+	defaults.multiplexing = led_multiplexing;
+	defaults.pixel_mapper_config = pixel_mapper;
 	defaults.parallel = parallel_displays; 
 	defaults.brightness = brightness;
 	defaults.hardware_mapping = mapping;
@@ -394,12 +396,14 @@ void LedMatrix::New(const Nan::FunctionCallbackInfo<Value>& args)
 	}
 
 	// grab parameters
-	int rows = 32;
-	int cols = 32;
+	int rows = 16;
+	int cols = 16;
 	int chained = 1;
+	int multiplexing = 10;
+	std::string pixmapper = "snake:2";
 	int parallel = 1;
 	int brightness = 100;
-	std::string mapping = "regular";
+	std::string mapping = "adafruit-hat";
 	std::string rgbSeq = "RGB";
 
 
@@ -415,23 +419,31 @@ void LedMatrix::New(const Nan::FunctionCallbackInfo<Value>& args)
 		chained = args[2]->ToInteger()->Value();
 	}
 	if(args.Length() > 3 && args[3]->IsNumber()) {
-		parallel = args[3]->ToInteger()->Value();
+		multiplexing = args[3]->ToInteger()->Value();
+	}
+	if(args.Length() > 4 && args[4]->IsString()) {
+
+		v8::String::Utf8Value str(args[4]->ToString());
+		pixmapper = std::string(*str);
+	}
+	if(args.Length() > 5 && args[5]->IsNumber()) {
+		parallel = args[5]->ToInteger()->Value();
 	}
 
-	if(args.Length() > 4 && args[4]->IsNumber())  {
-		brightness = args[4]->ToInteger()->Value();
+	if(args.Length() > 6 && args[6]->IsNumber())  {
+		brightness = args[6]->ToInteger()->Value();
 	}
 
 
-	if(args.Length() > 5 && args[5]->IsString()) {
+	if(args.Length() > 7 && args[7]->IsString()) {
 
-		v8::String::Utf8Value str(args[5]->ToString());
+		v8::String::Utf8Value str(args[7]->ToString());
 		mapping = std::string(*str);
 	}
 
-	if(args.Length() > 6 && args[6]->IsString()) {
+	if(args.Length() > 8 && args[8]->IsString()) {
 
-		v8::String::Utf8Value str(args[6]->ToString());
+		v8::String::Utf8Value str(args[8]->ToString());
 		rgbSeq = std::string(*str);
 	}
 
@@ -441,9 +453,9 @@ void LedMatrix::New(const Nan::FunctionCallbackInfo<Value>& args)
 	v8::Isolate* isolate = v8::Isolate::GetCurrent();
 	v8::HandleScope handle_scope(isolate);
 
-	if(args.Length() > 7 && args[7]->IsArray()) 
+	if(args.Length() > 9 && args[9]->IsArray()) 
 	{
-		Handle<Array> jsArray = Handle<Array>::Cast(args[7]);
+		Handle<Array> jsArray = Handle<Array>::Cast(args[9]);
 		for(unsigned int i = 0; i < jsArray->Length(); i++)
 		{
 			val = jsArray->Get(v8::Integer::New(isolate, i));
@@ -452,7 +464,7 @@ void LedMatrix::New(const Nan::FunctionCallbackInfo<Value>& args)
 	}
 
 	// make the matrix
-	LedMatrix* matrix = new LedMatrix(rows, cols, chained, parallel, brightness,  mapping.c_str(), rgbSeq.c_str(), strings);
+	LedMatrix* matrix = new LedMatrix(rows, cols, chained, multiplexing, pixmapper.c_str(),  parallel, brightness,  mapping.c_str(), rgbSeq.c_str(), strings);
 	matrix->Wrap(args.This());
 
 	// return this object
